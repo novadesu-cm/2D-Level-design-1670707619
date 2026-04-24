@@ -13,14 +13,16 @@ public class PlayerMovement : MonoBehaviour
     public float dashDuration = 0.2f;
     public float dashCooldown = 1.5f;
 
-    [Header("Interaction Settings")]
-    public float interactDistance = 3f;
+    [Header("Respawn Settings")]
+    // 👇 ตัวแปรสำคัญ: ต้องมีอันนี้เพื่อจำว่าล่าสุดเซฟที่ไหน
+    public Vector3 currentRespawnPosition;
 
     [Header("References")]
     public Transform cameraTransform;
 
     private CharacterController controller;
     private Vector3 velocity;
+    private Vector3 knockbackVelocity = Vector3.zero;
 
     private bool isDashing = false;
     private float dashEndTime = 0f;
@@ -29,6 +31,8 @@ public class PlayerMovement : MonoBehaviour
     void Start()
     {
         controller = GetComponent<CharacterController>();
+        // 👇 เมื่อเริ่มเกม ให้จำตำแหน่งแรกสุดไว้เป็นจุดเกิด
+        currentRespawnPosition = transform.position;
     }
 
     void Update()
@@ -41,7 +45,7 @@ public class PlayerMovement : MonoBehaviour
         {
             NormalMovement();
             HandleDashInput();
-            HandleInteractInput(); // ← เพิ่มตรงนี้
+            HandleInteractInput();
         }
     }
 
@@ -73,8 +77,9 @@ public class PlayerMovement : MonoBehaviour
         }
 
         velocity.y += gravity * Time.deltaTime;
+        knockbackVelocity = Vector3.Lerp(knockbackVelocity, Vector3.zero, Time.deltaTime * 5f);
 
-        Vector3 finalMovement = (moveDir * Time.deltaTime) + (velocity * Time.deltaTime);
+        Vector3 finalMovement = (moveDir * Time.deltaTime) + (velocity * Time.deltaTime) + (knockbackVelocity * Time.deltaTime);
         controller.Move(finalMovement);
     }
 
@@ -85,7 +90,6 @@ public class PlayerMovement : MonoBehaviour
             isDashing = true;
             dashEndTime = Time.time + dashDuration;
             nextDashTime = Time.time + dashCooldown;
-
             velocity.y = 0f;
         }
     }
@@ -102,25 +106,40 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    // =========================
-    // 🔑 Interaction (กด E)
-    // =========================
     void HandleInteractInput()
     {
         if (Input.GetKeyDown(KeyCode.E))
         {
             Ray ray = new Ray(cameraTransform.position, cameraTransform.forward);
             RaycastHit hit;
-
-            if (Physics.Raycast(ray, out hit, interactDistance))
+            if (Physics.Raycast(ray, out hit, 3f))
             {
                 DoorUnlock door = hit.collider.GetComponent<DoorUnlock>();
-
-                if (door != null)
-                {
-                    door.TryUnlock(gameObject);
-                }
+                if (door != null) door.TryUnlock(gameObject);
             }
         }
+    }
+
+    public void ApplyBounce(Vector3 bounceDir, float force)
+    {
+        velocity.y = bounceDir.normalized.y * force;
+        Vector3 horizontalDir = new Vector3(bounceDir.x, 0, bounceDir.z).normalized;
+        knockbackVelocity = horizontalDir * force;
+    }
+
+    // 👇 ฟังก์ชันวาร์ป (Respawn)
+    public void Respawn(Vector3 respawnPosition)
+    {
+        controller.enabled = false; // ปิด Controller ก่อนย้าย
+        transform.position = respawnPosition;
+        velocity = Vector3.zero;
+        knockbackVelocity = Vector3.zero;
+        controller.enabled = true; // ย้ายเสร็จแล้วเปิดใหม่
+    }
+
+    // 👇 ฟังก์ชันตาย (Die)
+    public void Die()
+    {
+        Respawn(currentRespawnPosition);
     }
 }
