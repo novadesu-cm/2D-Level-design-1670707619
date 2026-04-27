@@ -26,21 +26,20 @@ public class PlayerMovement : MonoBehaviour
     private bool isDashing = false;
     private float dashEndTime = 0f;
     private float nextDashTime = 0f;
-
-    // 👇 ตัวแปรใหม่: เอาไว้จำว่าตอนกด Dash เรากำลังกดปุ่มทิศทางไหนอยู่
     private Vector3 currentDashDir;
+
+    // 🛑 ตัวแปรใหม่: เช็คว่ากำลังเดินเต่า (กางโล่) อยู่ไหม
+    private bool isShieldingWalk = false;
 
     void Start()
     {
         controller = GetComponent<CharacterController>();
         currentRespawnPosition = transform.position;
-
         Cursor.lockState = CursorLockMode.Locked;
     }
 
     void Update()
     {
-        // ให้ตัวละครหันตามทิศทางกล้อง (เมาส์) ตลอดเวลา
         if (cameraTransform != null)
         {
             float targetAngle = cameraTransform.eulerAngles.y;
@@ -72,13 +71,17 @@ public class PlayerMovement : MonoBehaviour
         Vector3 moveInput = new Vector3(horizontal, 0f, vertical).normalized;
         Vector3 moveDir = Vector3.zero;
 
+        // 🐢 ระบบเดินเต่า: ถ้ากางโล่อยู่ ความเร็วจะเหลือแค่ 30% ของปกติ
+        float currentMoveSpeed = isShieldingWalk ? moveSpeed * 0.3f : moveSpeed;
+
         if (moveInput.magnitude >= 0.1f)
         {
             moveDir = transform.right * horizontal + transform.forward * vertical;
-            moveDir = moveDir.normalized * moveSpeed;
+            moveDir = moveDir.normalized * currentMoveSpeed;
         }
 
-        if (Input.GetButtonDown("Jump") && controller.isGrounded)
+        // ห้ามกระโดดด้วยตอนกางโล่
+        if (Input.GetButtonDown("Jump") && controller.isGrounded && !isShieldingWalk)
         {
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
         }
@@ -92,6 +95,9 @@ public class PlayerMovement : MonoBehaviour
 
     void HandleDashInput()
     {
+        // 🛑 ห้ามแดชตอนกางโล่เด็ดขาด!
+        if (isShieldingWalk) return;
+
         if (Input.GetKeyDown(KeyCode.LeftShift) && Time.time >= nextDashTime)
         {
             isDashing = true;
@@ -99,19 +105,16 @@ public class PlayerMovement : MonoBehaviour
             nextDashTime = Time.time + dashCooldown;
             velocity.y = 0f;
 
-            // 👇 เช็คว่าตอนกด Shift ผู้เล่นกำลังกด WASD ไปทางไหน
             float horizontal = Input.GetAxisRaw("Horizontal");
             float vertical = Input.GetAxisRaw("Vertical");
             Vector3 inputDir = new Vector3(horizontal, 0f, vertical).normalized;
 
             if (inputDir.magnitude >= 0.1f)
             {
-                // ถ้ามีการกดปุ่มเดิน ให้จำทิศทางนั้นไว้
                 currentDashDir = (transform.right * horizontal + transform.forward * vertical).normalized;
             }
             else
             {
-                // แต่ถ้าไม่ได้กดปุ่มเดินเลย (ยืนเฉยๆ แล้วกด Shift) ให้พุ่งไปข้างหน้าตามที่หน้าหันอยู่
                 currentDashDir = transform.forward;
             }
         }
@@ -121,7 +124,6 @@ public class PlayerMovement : MonoBehaviour
     {
         if (Time.time < dashEndTime)
         {
-            // 👇 พุ่งไปตามทิศทางที่จำเอาไว้
             controller.Move(currentDashDir * dashSpeed * Time.deltaTime);
         }
         else
@@ -163,5 +165,11 @@ public class PlayerMovement : MonoBehaviour
     public void Die()
     {
         Respawn(currentRespawnPosition);
+    }
+
+    // 🛡️ ฟังก์ชันให้สคริปต์เลือดเรียกใช้เพื่อสั่งให้เดินเต่า
+    public void SetShieldMovement(bool isShielding)
+    {
+        isShieldingWalk = isShielding;
     }
 }
