@@ -686,3 +686,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::EnemyHealth
   maxHealth: 100
   healthBarSlider: {fileID: 6532037654621431583}
+  healthItemPrefab: {fileID: 2674310286618552895, guid: a33535a722fbd8e4093d1df990db7942, type: 3}
+  dropChance: 50
