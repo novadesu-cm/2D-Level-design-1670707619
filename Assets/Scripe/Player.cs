@@ -14,7 +14,6 @@ public class PlayerMovement : MonoBehaviour
     public float dashCooldown = 1.5f;
 
     [Header("Respawn Settings")]
-    // 👇 ตัวแปรสำคัญ: ต้องมีอันนี้เพื่อจำว่าล่าสุดเซฟที่ไหน
     public Vector3 currentRespawnPosition;
 
     [Header("References")]
@@ -28,15 +27,26 @@ public class PlayerMovement : MonoBehaviour
     private float dashEndTime = 0f;
     private float nextDashTime = 0f;
 
+    // 👇 ตัวแปรใหม่: เอาไว้จำว่าตอนกด Dash เรากำลังกดปุ่มทิศทางไหนอยู่
+    private Vector3 currentDashDir;
+
     void Start()
     {
         controller = GetComponent<CharacterController>();
-        // 👇 เมื่อเริ่มเกม ให้จำตำแหน่งแรกสุดไว้เป็นจุดเกิด
         currentRespawnPosition = transform.position;
+
+        Cursor.lockState = CursorLockMode.Locked;
     }
 
     void Update()
     {
+        // ให้ตัวละครหันตามทิศทางกล้อง (เมาส์) ตลอดเวลา
+        if (cameraTransform != null)
+        {
+            float targetAngle = cameraTransform.eulerAngles.y;
+            transform.rotation = Quaternion.Euler(0f, targetAngle, 0f);
+        }
+
         if (isDashing)
         {
             DashMovement();
@@ -58,16 +68,13 @@ public class PlayerMovement : MonoBehaviour
 
         float horizontal = Input.GetAxisRaw("Horizontal");
         float vertical = Input.GetAxisRaw("Vertical");
-        Vector3 direction = new Vector3(horizontal, 0f, vertical).normalized;
 
+        Vector3 moveInput = new Vector3(horizontal, 0f, vertical).normalized;
         Vector3 moveDir = Vector3.zero;
 
-        if (direction.magnitude >= 0.1f)
+        if (moveInput.magnitude >= 0.1f)
         {
-            float targetAngle = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg + cameraTransform.eulerAngles.y;
-            transform.rotation = Quaternion.Euler(0f, targetAngle, 0f);
-
-            moveDir = Quaternion.Euler(0f, targetAngle, 0f) * Vector3.forward;
+            moveDir = transform.right * horizontal + transform.forward * vertical;
             moveDir = moveDir.normalized * moveSpeed;
         }
 
@@ -91,6 +98,22 @@ public class PlayerMovement : MonoBehaviour
             dashEndTime = Time.time + dashDuration;
             nextDashTime = Time.time + dashCooldown;
             velocity.y = 0f;
+
+            // 👇 เช็คว่าตอนกด Shift ผู้เล่นกำลังกด WASD ไปทางไหน
+            float horizontal = Input.GetAxisRaw("Horizontal");
+            float vertical = Input.GetAxisRaw("Vertical");
+            Vector3 inputDir = new Vector3(horizontal, 0f, vertical).normalized;
+
+            if (inputDir.magnitude >= 0.1f)
+            {
+                // ถ้ามีการกดปุ่มเดิน ให้จำทิศทางนั้นไว้
+                currentDashDir = (transform.right * horizontal + transform.forward * vertical).normalized;
+            }
+            else
+            {
+                // แต่ถ้าไม่ได้กดปุ่มเดินเลย (ยืนเฉยๆ แล้วกด Shift) ให้พุ่งไปข้างหน้าตามที่หน้าหันอยู่
+                currentDashDir = transform.forward;
+            }
         }
     }
 
@@ -98,7 +121,8 @@ public class PlayerMovement : MonoBehaviour
     {
         if (Time.time < dashEndTime)
         {
-            controller.Move(transform.forward * dashSpeed * Time.deltaTime);
+            // 👇 พุ่งไปตามทิศทางที่จำเอาไว้
+            controller.Move(currentDashDir * dashSpeed * Time.deltaTime);
         }
         else
         {
@@ -127,17 +151,15 @@ public class PlayerMovement : MonoBehaviour
         knockbackVelocity = horizontalDir * force;
     }
 
-    // 👇 ฟังก์ชันวาร์ป (Respawn)
     public void Respawn(Vector3 respawnPosition)
     {
-        controller.enabled = false; // ปิด Controller ก่อนย้าย
+        controller.enabled = false;
         transform.position = respawnPosition;
         velocity = Vector3.zero;
         knockbackVelocity = Vector3.zero;
-        controller.enabled = true; // ย้ายเสร็จแล้วเปิดใหม่
+        controller.enabled = true;
     }
 
-    // 👇 ฟังก์ชันตาย (Die)
     public void Die()
     {
         Respawn(currentRespawnPosition);
