@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 8657140465156423729}
   - component: {fileID: 5429815416128536054}
   - component: {fileID: 1766024151182665778}
+  - component: {fileID: -5414567633676263963}
   m_Layer: 0
   m_Name: Boss
   m_TagString: Untagged
@@ -158,3 +159,17 @@ MonoBehaviour:
   moveSpeed: 8
   chaseDuration: 2
   gravity: -9.81
+--- !u!114 &-5414567633676263963
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7601318125545394009}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 972d4e85a9ee2b94cab812482ef4b7d4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyHealth
+  maxHealth: 300
+  healthBarSlider: {fileID: 0}

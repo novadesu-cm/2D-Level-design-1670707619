@@ -4,19 +4,26 @@ using UnityEngine;
 public class EnemyChargeAI : MonoBehaviour
 {
     [Header("Target & Range")]
-    public Transform player; // ลากโมเดล Player มาใส่ช่องนี้
-    public float aggroRange = 10f; // ระยะมองเห็นที่จะเริ่มวิ่งไล่
+    public Transform player;
+    public float aggroRange = 10f;
 
     [Header("Movement Settings")]
-    public float moveSpeed = 8f; // ความเร็วตอนพุ่งชาร์จ
-    public float chaseDuration = 2f; // ระยะเวลาที่วิ่งไล่ก่อนจะนิ่งไป (วินาที)
+    public float moveSpeed = 8f;
+    public float chaseDuration = 2f;
     public float gravity = -9.81f;
+
+    [Header("Attack Settings (เพิ่มใหม่)")]
+    public float attackDamage = 15f;    // แรงตบของมอนสเตอร์
+    public float attackRange = 1.5f;     // ระยะที่มอนสเตอร์จะตบถึง
+    public float attackCooldown = 1f;  // ตบเสร็จแล้วพักกี่วินาทีถึงจะตบใหม่ได้
+    private float nextAttackTime = 0f;
 
     private CharacterController controller;
     private Vector3 velocity;
+    private Vector3 knockbackVelocity = Vector3.zero;
 
     private bool isChasing = false;
-    private bool hasFinishedChasing = false; // สถานะเช็คว่าชาร์จเสร็จแล้วหรือยัง
+    private bool hasFinishedChasing = false;
     private float chaseTimer = 0f;
 
     void Start()
@@ -26,64 +33,80 @@ public class EnemyChargeAI : MonoBehaviour
 
     void Update()
     {
-        // 1. จัดการแรงโน้มถ่วงให้ศัตรูติดพื้นเสมอ
         if (controller.isGrounded && velocity.y < 0)
         {
             velocity.y = -2f;
         }
         velocity.y += gravity * Time.deltaTime;
 
-        // 2. ถ้านิ่งไปแล้ว (วิ่งครบ 2 วิแล้ว) ก็ให้รับแค่แรงโน้มถ่วงอย่างเดียว ไม่ต้องเดินต่อ
+        knockbackVelocity = Vector3.Lerp(knockbackVelocity, Vector3.zero, Time.deltaTime * 5f);
+
+        float distanceToPlayer = Vector3.Distance(transform.position, player.position);
+
+        // --- ระบบโจมตีผู้เล่น ---
+        if (distanceToPlayer <= attackRange && Time.time >= nextAttackTime)
+        {
+            AttackPlayer();
+            nextAttackTime = Time.time + attackCooldown;
+        }
+
         if (hasFinishedChasing)
         {
-            controller.Move(velocity * Time.deltaTime);
+            controller.Move((velocity + knockbackVelocity) * Time.deltaTime);
             return;
         }
 
-        // 3. คำนวณระยะห่างระหว่างศัตรูกับเพลเยอร์
-        float distanceToPlayer = Vector3.Distance(transform.position, player.position);
-
-        // 4. ตรวจสอบว่าเพลเยอร์เข้ามาในระยะหรือยัง
         if (distanceToPlayer <= aggroRange && !isChasing)
         {
-            isChasing = true; // เริ่มพุ่งชาร์จ!
+            isChasing = true;
         }
 
-        // 5. ระบบวิ่งไล่และจับเวลา
         if (isChasing)
         {
-            chaseTimer += Time.deltaTime; // เริ่มจับเวลา
+            chaseTimer += Time.deltaTime;
 
             if (chaseTimer <= chaseDuration)
             {
-                // หันหน้าหาเพลเยอร์ (ล็อคแกน Y ไว้ไม่ให้หน้าศัตรูทิ่มลงพื้นตามตัวเพลเยอร์)
                 Vector3 direction = (player.position - transform.position).normalized;
                 direction.y = 0;
                 transform.rotation = Quaternion.LookRotation(direction);
 
-                // เคลื่อนที่พุ่งเข้าหา
                 Vector3 moveDir = direction * moveSpeed;
-
-                // รวมการเดินและแรงโน้มถ่วงเข้าด้วยกัน
-                controller.Move((moveDir + velocity) * Time.deltaTime);
+                controller.Move((moveDir + velocity + knockbackVelocity) * Time.deltaTime);
             }
             else
             {
-                // วิ่งครบ 2 วินาทีแล้ว สั่งให้หยุดนิ่งเป็นการถาวร
                 hasFinishedChasing = true;
                 isChasing = false;
             }
         }
         else
         {
-            // กรณียังไม่เข้าระยะ ก็ให้ยืนติดพื้นไว้เฉยๆ
-            controller.Move(velocity * Time.deltaTime);
+            controller.Move((velocity + knockbackVelocity) * Time.deltaTime);
         }
     }
 
-    // ฟังก์ชันพิเศษ: วาดเส้นรัศมีสีแดงในหน้าต่าง Scene เพื่อให้คุณกะระยะง่ายๆ
+    void AttackPlayer()
+    {
+        PlayerHealth playerHealth = player.GetComponent<PlayerHealth>();
+        if (playerHealth != null)
+        {
+            playerHealth.TakeDamage(attackDamage);
+            Debug.Log("มอนสเตอร์ตบเพลเยอร์!");
+        }
+    }
+
+    public void ApplyKnockback(Vector3 direction, float force)
+    {
+        knockbackVelocity = direction * force;
+    }
+
     private void OnDrawGizmosSelected()
     {
+        // วาดวงกลมสีเหลืองแสดงระยะตบในหน้า Scene
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(transform.position, attackRange);
+
         Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(transform.position, aggroRange);
     }
