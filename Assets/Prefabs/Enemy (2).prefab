@@ -663,16 +663,18 @@ MonoBehaviour:
   gravity: -9.81
   attackDamage: 15
   attackRange: 5
-  attackCooldown: 1
-  windUpTime: 0.5
+  attackCooldown: 1.5
+  windUpTime: 0.75
   lungeSpeed: 30
   knockbackForceToPlayer: 25
-  hitStunDuration: 0.1
+  hitStunDuration: 0.2
   shieldStunDuration: 2
   stunnedColor: {r: 1, g: 0.5309945, b: 0, a: 1}
   bounceBackForce: 30
   enemyMesh: {fileID: 2046378248138000349}
   warningColor: {r: 1, g: 0, b: 0.085289, a: 1}
+  warningSound: {fileID: 8300000, guid: a503c860cf89e794a8b275281b0d2c7e, type: 3}
+  lungeSound: {fileID: 8300000, guid: c083d8e62af9e234ba5802f8de781152, type: 3}
 --- !u!114 &4202394283307279718
 MonoBehaviour:
   m_ObjectHideFlags: 0
