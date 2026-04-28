@@ -666,6 +666,7 @@ MonoBehaviour:
   attackCooldown: 1
   windUpTime: 0.5
   lungeSpeed: 30
+  knockbackForceToPlayer: 25
   hitStunDuration: 0.1
   shieldStunDuration: 2
   stunnedColor: {r: 1, g: 0.5309945, b: 0, a: 1}
@@ -689,4 +690,4 @@ MonoBehaviour:
   healthItemPrefab: {fileID: 2674310286618552895, guid: a33535a722fbd8e4093d1df990db7942, type: 3}
   dropChance: 50
   hurtSound: {fileID: 0}
-  deathSound: {fileID: 0}
+  deathSound: {fileID: 8300000, guid: 4b2b3d5251e38f047821eb54e9c063e8, type: 3}

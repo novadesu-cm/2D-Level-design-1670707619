@@ -19,13 +19,16 @@ public class EnemyChargeAI : MonoBehaviour
     public float windUpTime = 0.5f;
     public float lungeSpeed = 20f;
 
+    [Header("Player Knockback (แรงกระเด็นของผู้เล่น)")]
+    public float knockbackForceToPlayer = 15f; // 💥 ปรับความแรงที่ผู้เล่นจะกระเด็นตรงนี้ได้เลย
+
     [Header("Hit Reaction (ชะงักตอนโดนดาบ)")]
     public float hitStunDuration = 0.4f;
 
     [Header("Shield Reaction (มึนเมื่อชนโล่)")]
-    public float shieldStunDuration = 2f;      // 🕒 ชนโล่แล้วจะมึนนานกว่าโดนฟัน
-    public Color stunnedColor = Color.blue;    // 🎨 สีตอนติดมึนชนโล่
-    public float bounceBackForce = 15f;        // 💥 แรงเด้งถอยหลังตอนชนโล่
+    public float shieldStunDuration = 2f;
+    public Color stunnedColor = Color.blue;
+    public float bounceBackForce = 15f;
 
     [Header("Visual Feedback (สีตัวละคร)")]
     public Renderer enemyMesh;
@@ -51,24 +54,20 @@ public class EnemyChargeAI : MonoBehaviour
 
     void Update()
     {
-        // 1. จัดการแรงโน้มถ่วง
         if (controller.isGrounded && velocity.y < 0)
         {
             velocity.y = -2f;
         }
         velocity.y += gravity * Time.deltaTime;
 
-        // ค่อยๆ ลดแรงกระเด็นลงเรื่อยๆ
         knockbackVelocity = Vector3.Lerp(knockbackVelocity, Vector3.zero, Time.deltaTime * 5f);
 
-        // 2. ถ้าติดสถานะมึนงง หรือ กำลังโจมตีอยู่ จะไม่เดินไล่ตาม (รับแค่แรงกระเด็นกับแรงโน้มถ่วง)
         if (isStunned || isAttacking)
         {
             controller.Move((velocity + knockbackVelocity) * Time.deltaTime);
             return;
         }
 
-        // 3. คำนวณระยะห่าง
         float distanceToPlayer = Vector3.Distance(transform.position, player.position);
 
         if (distanceToPlayer <= aggroRange && !isChasing)
@@ -76,7 +75,6 @@ public class EnemyChargeAI : MonoBehaviour
             isChasing = true;
         }
 
-        // 4. ตัดสินใจว่าจะพุ่งโจมตี หรือวิ่งไล่ตาม
         if (distanceToPlayer <= attackRange && !isAttacking)
         {
             StartCoroutine(AttackLungeRoutine());
@@ -96,23 +94,18 @@ public class EnemyChargeAI : MonoBehaviour
         }
     }
 
-    // 💥 ระบบพุ่งโจมตี
     IEnumerator AttackLungeRoutine()
     {
         isAttacking = true;
 
-        // เปลี่ยนเป็นสีแดงเตือน
         if (enemyMesh != null) enemyMesh.material.color = warningColor;
 
-        // หันหน้าล็อกเป้า
         Vector3 directionToPlayer = (player.position - transform.position).normalized;
         directionToPlayer.y = 0;
         transform.rotation = Quaternion.LookRotation(directionToPlayer);
 
-        // รอให้ผู้เล่นเตรียมหลบหรือกางโล่
         yield return new WaitForSeconds(windUpTime);
 
-        // คืนสีเดิม แล้วพุ่งตัว
         if (enemyMesh != null) enemyMesh.material.color = originalColor;
 
         float lungeDuration = 0.2f;
@@ -124,32 +117,37 @@ public class EnemyChargeAI : MonoBehaviour
             timer += Time.deltaTime;
             controller.Move((transform.forward * lungeSpeed + velocity) * Time.deltaTime);
 
-            // เช็คการชนเพลเยอร์
             if (!hasHit && Vector3.Distance(transform.position, player.position) <= 1.5f)
             {
                 PlayerHealth playerHealth = player.GetComponent<PlayerHealth>();
                 if (playerHealth != null)
                 {
-                    // 🛡️ เช็คว่าผู้เล่นยกโล่อยู่หรือไม่?
                     if (playerHealth.isShielding)
                     {
                         hasHit = true;
-                        playerHealth.BreakShield(); // สั่งโล่ผู้เล่นแตกและติดคูลดาวน์
-                        ShieldStun();               // มอนสเตอร์ติดมึน!
-                        break;                      // ยกเลิกการพุ่งทันที
+                        playerHealth.BreakShield();
+                        ShieldStun();
+                        break;
                     }
                     else
                     {
-                        // ถ้าไม่ได้กางโล่ โดนดาเมจเต็มๆ
+                        // 1. ลดเลือดผู้เล่น
                         playerHealth.TakeDamage(attackDamage);
                         hasHit = true;
+
+                        // 2. 👇 สั่งให้ผู้เล่นกระเด็นถอยหลัง
+                        PlayerMovement pMove = player.GetComponent<PlayerMovement>();
+                        if (pMove != null)
+                        {
+                            Vector3 kbDir = (player.position - transform.position).normalized;
+                            pMove.ApplyKnockback(kbDir, knockbackForceToPlayer);
+                        }
                     }
                 }
             }
             yield return null;
         }
 
-        // ถ้าระหว่างพุ่งไม่ได้ชนโล่ (ไม่ติด Stun) ก็ให้พักเหนื่อยตามปกติ
         if (!isStunned)
         {
             yield return new WaitForSeconds(attackCooldown);
@@ -157,10 +155,9 @@ public class EnemyChargeAI : MonoBehaviour
         }
     }
 
-    // 🛡️ ระบบชนโล่แล้วมึนงง
     public void ShieldStun()
     {
-        StopAllCoroutines(); // หยุดลูปการพุ่งโจมตี
+        StopAllCoroutines();
         StartCoroutine(ShieldStunRoutine());
     }
 
@@ -169,35 +166,24 @@ public class EnemyChargeAI : MonoBehaviour
         isStunned = true;
         isAttacking = false;
 
-        // เปลี่ยนเป็นสีมึนงง (เช่น สีฟ้า)
         if (enemyMesh != null) enemyMesh.material.color = stunnedColor;
-        Debug.Log("มอนสเตอร์พุ่งชนโล่! ติดมึนงงอย่างหนัก!");
 
-        // กระเด็นถอยหลังอย่างแรง
         Vector3 bounceDir = (transform.position - player.position).normalized;
         bounceDir.y = 0;
         knockbackVelocity = bounceDir * bounceBackForce;
 
-        // รอมันหายมึน
         yield return new WaitForSeconds(shieldStunDuration);
 
-        // คืนสีเดิมและกลับมาล่าต่อ
         if (enemyMesh != null) enemyMesh.material.color = originalColor;
         isStunned = false;
     }
 
-    // ⚔️ ฟังก์ชันโดนดาบฟันปกติ (มี Hyper Armor)
     public void ApplyKnockback(Vector3 direction, float force)
     {
         knockbackVelocity = direction * force;
 
-        // ถ้าง้างพุ่งอยู่ หรือกำลังพุ่ง จะมีเกราะ Hyper Armor ตีไม่ชะงัก
-        if (isAttacking)
-        {
-            return;
-        }
+        if (isAttacking) return;
 
-        // แต่ถ้าเดินอยู่เฉยๆ จะชะงักได้
         StopAllCoroutines();
         StartCoroutine(StunRoutine());
     }

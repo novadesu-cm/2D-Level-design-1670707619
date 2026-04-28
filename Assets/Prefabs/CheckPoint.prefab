@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 5052529975130103428}
   - component: {fileID: 294789825605959193}
   - component: {fileID: 7026796510910140472}
+  - component: {fileID: 8109038624621496396}
   m_Layer: 0
   m_Name: CheckPoint
   m_TagString: Untagged
@@ -27,9 +28,9 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7943806553085508370}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 3.9719696, y: -11.839471, z: -29.963535}
-  m_LocalScale: {x: 2.423, y: 8.139585, z: 2.423}
+  m_LocalScale: {x: 2.423, y: 0.43596306, z: 2.423}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -106,9 +107,23 @@ BoxCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 0
+  m_IsTrigger: 1
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &8109038624621496396
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7943806553085508370}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2e708a9c9932c0f40bfb39c133e69898, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Checkpoint
+  saveEffect: {fileID: 0}
+  saveSound: {fileID: 8300000, guid: be754dc985f530a4a82428bef37b810c, type: 3}

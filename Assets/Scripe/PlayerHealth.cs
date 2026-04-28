@@ -10,16 +10,30 @@ public class PlayerHealth : MonoBehaviour
     public Slider healthBar;
 
     [Header("ระบบโล่ป้องกัน")]
+    public GameObject shieldModel;
     public bool isShielding = false;
     public bool isShieldBroken = false;
     public float shieldCooldown = 2f;
-    public GameObject shieldModel;
+
+    [Header("ตำแหน่งการถือโล่ (Visuals)")]
+    public Vector3 shieldIdlePosition = new Vector3(-0.5f, 0f, 0f);
+    public Vector3 shieldIdleRotation = new Vector3(0f, 90f, 20f);
+
+    public Vector3 shieldBlockPosition = new Vector3(0f, 0.5f, 0.8f);
+    public Vector3 shieldBlockRotation = new Vector3(0f, 0f, 0f);
+
+    public float shieldRaiseSpeed = 15f;
 
     [Header("UI ข้อความแจ้งเตือน")]
-    public GameObject shieldWarningText; // ลาก Text UI มาใส่
+    public GameObject shieldWarningText;
+
+    [Header("ระบบเสียง (Audio)")]
+    public AudioClip hurtSound;        // 🎵 เสียงโดนโจมตีเข้าเนื้อ
+    public AudioClip shieldBreakSound; // 🎵 เสียงตอนโล่แตก
+    private AudioSource audioSource;
 
     private PlayerMovement movement;
-    private Coroutine warningRoutine; // เก็บค่า Coroutine ไว้เพื่อสั่งหยุดได้แม่นยำ
+    private Coroutine warningRoutine;
 
     void Start()
     {
@@ -27,51 +41,56 @@ public class PlayerHealth : MonoBehaviour
         movement = GetComponent<PlayerMovement>();
         UpdateHealthBar();
 
-        if (shieldModel != null) shieldModel.SetActive(false);
+        if (shieldModel != null)
+        {
+            shieldModel.SetActive(true);
+            shieldModel.transform.localPosition = shieldIdlePosition;
+            shieldModel.transform.localRotation = Quaternion.Euler(shieldIdleRotation);
+        }
+
         if (shieldWarningText != null) shieldWarningText.SetActive(false);
+
+        audioSource = gameObject.AddComponent<AudioSource>();
+        audioSource.playOnAwake = false;
     }
 
     void Update()
     {
-        // 1. ตรวจสอบการกดปุ่มโล่ (คลิกขวา)
         bool holdingShieldInput = Input.GetButton("Fire2") || Input.GetMouseButton(1);
 
         if (holdingShieldInput)
         {
             if (!isShieldBroken)
             {
-                // ✅ กรณีโล่พร้อมใช้
                 isShielding = true;
-                if (shieldModel != null) shieldModel.SetActive(true);
                 if (movement != null) movement.SetShieldMovement(true);
-
-                // ถ้าโล่พร้อมใช้แล้วแต่ข้อความยังค้างอยู่ ให้ปิดทิ้งทันที
                 HideWarningImmediately();
             }
             else
             {
-                // ❌ กรณีโล่ยังไม่พร้อม (แตกอยู่)
                 isShielding = false;
-                if (shieldModel != null) shieldModel.SetActive(false);
                 if (movement != null) movement.SetShieldMovement(false);
-
-                // โชว์ข้อความเตือน
                 ShowShieldWarning();
             }
         }
         else
         {
-            // 🚫 กรณีไม่ได้กดปุ่ม
             isShielding = false;
-            if (shieldModel != null) shieldModel.SetActive(false);
             if (movement != null) movement.SetShieldMovement(false);
+        }
+
+        if (shieldModel != null && !isShieldBroken)
+        {
+            Vector3 targetPos = isShielding ? shieldBlockPosition : shieldIdlePosition;
+            Quaternion targetRot = Quaternion.Euler(isShielding ? shieldBlockRotation : shieldIdleRotation);
+
+            shieldModel.transform.localPosition = Vector3.Lerp(shieldModel.transform.localPosition, targetPos, Time.deltaTime * shieldRaiseSpeed);
+            shieldModel.transform.localRotation = Quaternion.Slerp(shieldModel.transform.localRotation, targetRot, Time.deltaTime * shieldRaiseSpeed);
         }
     }
 
-    // ฟังก์ชันสั่งแสดงข้อความเตือน
     void ShowShieldWarning()
     {
-        // ถ้าข้อความปิดอยู่ ให้เริ่มโชว์
         if (shieldWarningText != null && !shieldWarningText.activeSelf)
         {
             if (warningRoutine != null) StopCoroutine(warningRoutine);
@@ -79,7 +98,6 @@ public class PlayerHealth : MonoBehaviour
         }
     }
 
-    // ฟังก์ชันปิดข้อความทันที (ใช้ตอนโล่ซ่อมเสร็จหรือเริ่มกางโล่ได้)
     void HideWarningImmediately()
     {
         if (shieldWarningText != null && shieldWarningText.activeSelf)
@@ -92,7 +110,7 @@ public class PlayerHealth : MonoBehaviour
     IEnumerator ShieldWarningRoutine()
     {
         shieldWarningText.SetActive(true);
-        yield return new WaitForSeconds(1f); // โชว์ค้างไว้ 1 วินาที
+        yield return new WaitForSeconds(1f);
         shieldWarningText.SetActive(false);
     }
 
@@ -103,6 +121,11 @@ public class PlayerHealth : MonoBehaviour
             Debug.Log("โล่รับดาเมจแทน! โล่แตก!");
             BreakShield();
             return;
+        }
+
+        if (hurtSound != null && audioSource != null)
+        {
+            audioSource.PlayOneShot(hurtSound);
         }
 
         currentHealth -= damage;
@@ -118,6 +141,12 @@ public class PlayerHealth : MonoBehaviour
         isShieldBroken = true;
         isShielding = false;
 
+        // 🔊 เล่นเสียงโล่แตกตรงนี้!
+        if (shieldBreakSound != null && audioSource != null)
+        {
+            audioSource.PlayOneShot(shieldBreakSound);
+        }
+
         if (shieldModel != null) shieldModel.SetActive(false);
         if (movement != null) movement.SetShieldMovement(false);
 
@@ -129,7 +158,13 @@ public class PlayerHealth : MonoBehaviour
         yield return new WaitForSeconds(shieldCooldown);
         isShieldBroken = false;
 
-        // ✨ เมื่อซ่อมเสร็จ ให้ปิดข้อความเตือนทันที ไม่ต้องรอให้ครบวิ
+        if (shieldModel != null)
+        {
+            shieldModel.SetActive(true);
+            shieldModel.transform.localPosition = shieldIdlePosition;
+            shieldModel.transform.localRotation = Quaternion.Euler(shieldIdleRotation);
+        }
+
         HideWarningImmediately();
         Debug.Log("ซ่อมโล่เสร็จแล้ว!");
     }

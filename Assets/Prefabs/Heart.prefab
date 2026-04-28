@@ -155,3 +155,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::HealthPickup
   healthAmount: 20
   rotationSpeed: 100
+  healSound: {fileID: 8300000, guid: 72da478c5894e0f4bb4bc20414607e58, type: 3}

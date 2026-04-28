@@ -24,8 +24,8 @@ public class PlayerMovement : MonoBehaviour
     public Transform cameraTransform;
 
     [Header("ระบบเสียง (Audio)")]
-    public AudioClip jumpSound; // 🎵 เสียงกระโดด
-    public AudioClip dashSound; // 🎵 เสียงพุ่งตัว (Dash)
+    public AudioClip jumpSound;
+    public AudioClip dashSound;
     private AudioSource audioSource;
 
     private CharacterController controller;
@@ -44,7 +44,6 @@ public class PlayerMovement : MonoBehaviour
         currentRespawnPosition = transform.position;
         Cursor.lockState = CursorLockMode.Locked;
 
-        // สร้างลำโพงที่ตัวผู้เล่นอัตโนมัติ
         audioSource = gameObject.AddComponent<AudioSource>();
         audioSource.playOnAwake = false;
     }
@@ -98,12 +97,13 @@ public class PlayerMovement : MonoBehaviour
                 velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
                 jumpCount++;
 
-                // 🔊 เล่นเสียงกระโดด
                 if (jumpSound != null) audioSource.PlayOneShot(jumpSound);
             }
         }
 
         velocity.y += gravity * Time.deltaTime;
+
+        // ค่อยๆ ลดแรงกระเด็นลงเรื่อยๆ
         knockbackVelocity = Vector3.Lerp(knockbackVelocity, Vector3.zero, Time.deltaTime * 5f);
 
         Vector3 finalMovement = (moveDir * Time.deltaTime) + (velocity * Time.deltaTime) + (knockbackVelocity * Time.deltaTime);
@@ -121,7 +121,6 @@ public class PlayerMovement : MonoBehaviour
             nextDashTime = Time.time + dashCooldown;
             velocity.y = 0f;
 
-            // 🔊 เล่นเสียงแดช
             if (dashSound != null) audioSource.PlayOneShot(dashSound);
 
             float horizontal = Input.GetAxisRaw("Horizontal");
@@ -134,9 +133,19 @@ public class PlayerMovement : MonoBehaviour
     }
 
     void DashMovement() { if (Time.time < dashEndTime) controller.Move(currentDashDir * dashSpeed * Time.deltaTime); else isDashing = false; }
-    void HandleInteractInput() { /* โค้ดเปิดประตูเดิม */ }
+    void HandleInteractInput() { }
+
     public void ApplyBounce(Vector3 bounceDir, float force) { velocity.y = bounceDir.normalized.y * force; knockbackVelocity = new Vector3(bounceDir.x, 0, bounceDir.z).normalized * force; }
-    public void Respawn(Vector3 pos) { controller.enabled = false; transform.position = pos; velocity = Vector3.zero; controller.enabled = true; }
+
+    // 👇 ฟังก์ชันใหม่: รับแรงผลักจากการโดนโจมตี
+    public void ApplyKnockback(Vector3 direction, float force)
+    {
+        direction.y = 0; // ไม่เอาแกน Y มาคิด
+        knockbackVelocity = direction.normalized * force;
+        velocity.y = 3f; // สั่งให้ตัวลอยกระเด้งขึ้นจากพื้นนิดนึงตอนโดนตี
+    }
+
+    public void Respawn(Vector3 pos) { controller.enabled = false; transform.position = pos; velocity = Vector3.zero; knockbackVelocity = Vector3.zero; controller.enabled = true; }
     public void Die() { Respawn(currentRespawnPosition); }
     public void SetShieldMovement(bool isShielding) { isShieldingWalk = isShielding; }
 }

@@ -495,3 +495,4 @@ MonoBehaviour:
   coinPrefab: {fileID: 5848141331567906062, guid: b744b2c45224f174e8f972dccdb17d19, type: 3}
   coinCount: 5
   interactDistance: 3
+  openSound: {fileID: 8300000, guid: 28df397f36eef854a8a6b6e741b62456, type: 3}
