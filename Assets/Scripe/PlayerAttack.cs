@@ -5,16 +5,14 @@ public class PlayerAttack : MonoBehaviour
 {
     [Header("ตั้งค่าการโจมตี (Hitbox)")]
     public float attackDamage = 25f;
-    public float attackRange = 1.5f; // ขนาดวงกว้างของรัศมีดาบ
+    public float attackRange = 1.5f;
     public float attackCooldown = 0.5f;
     public float knockbackForce = 15f;
-
-    [Tooltip("เวลาที่หน่วงก่อนทำดาเมจ (ให้ตรงกับจังหวะดาบฟาดลงมากลางอากาศ)")]
-    public float hitDelay = 0.1f; // 🕒 ตัวแปรใหม่!
+    public float hitDelay = 0.1f;
 
     [Header("จุดกำเนิดการโจมตี")]
-    public Transform attackPoint; // จุดศูนย์กลาง Hitbox
-    public Vector3 defaultAttackOffset = new Vector3(0, 1f, 1f); // ตำแหน่งสำรองถ้าไม่ได้ใส่ attackPoint
+    public Transform attackPoint;
+    public Vector3 defaultAttackOffset = new Vector3(0, 1f, 1f);
     public LayerMask enemyLayer;
 
     [Header("ระบบแกว่งดาบ")]
@@ -23,6 +21,11 @@ public class PlayerAttack : MonoBehaviour
     public Vector3 swingForwardOffset = new Vector3(0f, 0f, 0.8f);
     public float swingSpeed = 0.15f;
 
+    [Header("ระบบเสียง (Audio)")]
+    public AudioClip swingSound; // 🎵 เสียงตอนง้างฟันลม
+    public AudioClip hitSound;   // 🎵 เสียงตอนฟันโดนเนื้อ/เกราะมอนสเตอร์
+    private AudioSource audioSource;
+
     private float nextAttackTime = 0f;
     private bool isSwinging = false;
     private Quaternion swordStartRotation;
@@ -30,6 +33,10 @@ public class PlayerAttack : MonoBehaviour
 
     void Start()
     {
+        // สร้างลำโพงที่ตัวผู้เล่นอัตโนมัติ
+        audioSource = gameObject.AddComponent<AudioSource>();
+        audioSource.playOnAwake = false;
+
         if (swordModel != null)
         {
             swordStartRotation = swordModel.localRotation;
@@ -41,27 +48,27 @@ public class PlayerAttack : MonoBehaviour
     {
         if (Input.GetButtonDown("Fire1") && Time.time >= nextAttackTime)
         {
-            // เปลี่ยนมาใช้ Coroutine ควบคุมจังหวะการทำดาเมจแทน
             StartCoroutine(PerformAttackRoutine());
             nextAttackTime = Time.time + attackCooldown;
         }
     }
 
-    // Coroutine สำหรับจัดการจังหวะฟันและจังหวะทำดาเมจ
     IEnumerator PerformAttackRoutine()
     {
-        // 1. สั่งให้ภาพดาบเริ่มแกว่งทันที
         if (swordModel != null && !isSwinging)
         {
             StartCoroutine(SwingSword());
         }
 
-        // 2. รอเสี้ยววินาทีให้ภาพดาบฟาดลงมาถึงตัวศัตรู
+        // 🔊 เล่นเสียงฟันลมทันทีที่กดตี
+        if (swingSound != null) audioSource.PlayOneShot(swingSound);
+
         yield return new WaitForSeconds(hitDelay);
 
-        // 3. เริ่มเช็คระยะและทำดาเมจ (Hitbox)
         Vector3 origin = attackPoint != null ? attackPoint.position : transform.position + transform.TransformDirection(defaultAttackOffset);
         Collider[] hitEnemies = Physics.OverlapSphere(origin, attackRange, enemyLayer);
+
+        bool hasHitSomeone = false;
 
         foreach (Collider enemy in hitEnemies)
         {
@@ -69,6 +76,7 @@ public class PlayerAttack : MonoBehaviour
             if (enemyHealth != null)
             {
                 enemyHealth.TakeDamage(attackDamage);
+                hasHitSomeone = true; // บันทึกไว้ว่าฟันโดนศัตรูแล้ว
             }
 
             EnemyChargeAI enemyAI = enemy.GetComponent<EnemyChargeAI>();
@@ -79,17 +87,21 @@ public class PlayerAttack : MonoBehaviour
                 enemyAI.ApplyKnockback(knockbackDir, knockbackForce);
             }
         }
+
+        // 🔊 ถ้าฟันโดนศัตรู ให้เล่นเสียงเนื้อกระทบดาบ
+        if (hasHitSomeone && hitSound != null)
+        {
+            audioSource.PlayOneShot(hitSound);
+        }
     }
 
     IEnumerator SwingSword()
     {
         isSwinging = true;
         float time = 0f;
-
         Quaternion targetRotation = swordStartRotation * Quaternion.Euler(swingAngle);
         Vector3 targetPosition = swordStartPosition + swingForwardOffset;
 
-        // จังหวะฟาดดาบลง
         while (time < swingSpeed)
         {
             time += Time.deltaTime;
@@ -100,7 +112,6 @@ public class PlayerAttack : MonoBehaviour
         }
 
         time = 0f;
-        // จังหวะดึงดาบกลับ
         while (time < swingSpeed)
         {
             time += Time.deltaTime;
@@ -115,10 +126,9 @@ public class PlayerAttack : MonoBehaviour
         isSwinging = false;
     }
 
-    // ฟังก์ชันนี้จะวาดลูกแก้วสีแดงใน Scene ให้คุณกะระยะ Hitbox ได้แบบเป๊ะๆ
     private void OnDrawGizmosSelected()
     {
-        Gizmos.color = new Color(1f, 0f, 0f, 0.4f); // สีแดงแบบโปร่งแสง 40%
+        Gizmos.color = new Color(1f, 0f, 0f, 0.4f);
         Vector3 origin = attackPoint != null ? attackPoint.position : transform.position + transform.TransformDirection(defaultAttackOffset);
         Gizmos.DrawSphere(origin, attackRange);
     }

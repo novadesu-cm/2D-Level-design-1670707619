@@ -9,8 +9,8 @@ public class PlayerMovement : MonoBehaviour
     public float gravity = -9.81f;
 
     [Header("Double Jump Settings")]
-    public int maxJumps = 2;       // จำนวนครั้งที่กระโดดได้ (พื้น 1 + กลางอากาศ 1)
-    private int jumpCount = 0;     // ตัวนับจำนวนครั้งที่กระโดดไปแล้ว
+    public int maxJumps = 2;
+    private int jumpCount = 0;
 
     [Header("Dash Settings")]
     public float dashSpeed = 20f;
@@ -22,6 +22,11 @@ public class PlayerMovement : MonoBehaviour
 
     [Header("References")]
     public Transform cameraTransform;
+
+    [Header("ระบบเสียง (Audio)")]
+    public AudioClip jumpSound; // 🎵 เสียงกระโดด
+    public AudioClip dashSound; // 🎵 เสียงพุ่งตัว (Dash)
+    private AudioSource audioSource;
 
     private CharacterController controller;
     private Vector3 velocity;
@@ -38,6 +43,10 @@ public class PlayerMovement : MonoBehaviour
         controller = GetComponent<CharacterController>();
         currentRespawnPosition = transform.position;
         Cursor.lockState = CursorLockMode.Locked;
+
+        // สร้างลำโพงที่ตัวผู้เล่นอัตโนมัติ
+        audioSource = gameObject.AddComponent<AudioSource>();
+        audioSource.playOnAwake = false;
     }
 
     void Update()
@@ -62,14 +71,10 @@ public class PlayerMovement : MonoBehaviour
 
     void NormalMovement()
     {
-        // 🛑 รีเซ็ตจำนวนการกระโดดเมื่อแตะพื้น
         if (controller.isGrounded)
         {
-            if (velocity.y < 0)
-            {
-                velocity.y = -2f;
-            }
-            jumpCount = 0; // แตะพื้นปุ๊บ รีเซ็ตให้กระโดดได้ใหม่ 2 ทีทันที
+            if (velocity.y < 0) velocity.y = -2f;
+            jumpCount = 0;
         }
 
         float horizontal = Input.GetAxisRaw("Horizontal");
@@ -86,15 +91,15 @@ public class PlayerMovement : MonoBehaviour
             moveDir = moveDir.normalized * currentMoveSpeed;
         }
 
-        // 🚀 ระบบ Double Jump
-        // เงื่อนไข: กด Spacebar + (อยู่บนพื้น OR กระโดดไปแล้วไม่เกิน maxJumps) + ห้ามกางโล่อยู่
         if (Input.GetButtonDown("Jump") && !isShieldingWalk)
         {
             if (controller.isGrounded || jumpCount < maxJumps - 1)
             {
                 velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
-                jumpCount++; // เพิ่มจำนวนครั้งที่กระโดด
-                Debug.Log("กระโดดครั้งที่: " + jumpCount);
+                jumpCount++;
+
+                // 🔊 เล่นเสียงกระโดด
+                if (jumpSound != null) audioSource.PlayOneShot(jumpSound);
             }
         }
 
@@ -105,7 +110,6 @@ public class PlayerMovement : MonoBehaviour
         controller.Move(finalMovement);
     }
 
-    // --- ส่วนแดชและระบบเดิม (คงไว้เหมือนเดิม) ---
     void HandleDashInput()
     {
         if (isShieldingWalk) return;
@@ -117,6 +121,9 @@ public class PlayerMovement : MonoBehaviour
             nextDashTime = Time.time + dashCooldown;
             velocity.y = 0f;
 
+            // 🔊 เล่นเสียงแดช
+            if (dashSound != null) audioSource.PlayOneShot(dashSound);
+
             float horizontal = Input.GetAxisRaw("Horizontal");
             float vertical = Input.GetAxisRaw("Vertical");
             Vector3 inputDir = new Vector3(horizontal, 0f, vertical).normalized;
@@ -127,7 +134,7 @@ public class PlayerMovement : MonoBehaviour
     }
 
     void DashMovement() { if (Time.time < dashEndTime) controller.Move(currentDashDir * dashSpeed * Time.deltaTime); else isDashing = false; }
-    void HandleInteractInput() { /* โค้ดเปิดประตูเดิมของคุณ */ }
+    void HandleInteractInput() { /* โค้ดเปิดประตูเดิม */ }
     public void ApplyBounce(Vector3 bounceDir, float force) { velocity.y = bounceDir.normalized.y * force; knockbackVelocity = new Vector3(bounceDir.x, 0, bounceDir.z).normalized * force; }
     public void Respawn(Vector3 pos) { controller.enabled = false; transform.position = pos; velocity = Vector3.zero; controller.enabled = true; }
     public void Die() { Respawn(currentRespawnPosition); }

@@ -1,13 +1,15 @@
-using UnityEngine;
+๏ปฟusing UnityEngine;
 
 public class HealthPickup : MonoBehaviour
 {
-    public float healthAmount = 20f; // ปริมาณเลือดที่จะเติม
+    public float healthAmount = 20f;
     public float rotationSpeed = 100f;
+
+    [Header("Audio")]
+    public AudioClip healSound; // ๐ต เน€เธชเธตเธขเธเธฎเธตเธฅเน€เธฅเธทเธญเธ”
 
     void Update()
     {
-        // หมุนไอเทมให้ดูสวยงาม
         transform.Rotate(Vector3.up * rotationSpeed * Time.deltaTime);
     }
 
@@ -18,18 +20,17 @@ public class HealthPickup : MonoBehaviour
             PlayerHealth playerHealth = other.GetComponent<PlayerHealth>();
             if (playerHealth != null && playerHealth.currentHealth < playerHealth.maxHealth)
             {
-                // เติมเลือดให้ผู้เล่น
                 playerHealth.currentHealth += healthAmount;
-
-                // ป้องกันเลือดเกิน Max
                 playerHealth.currentHealth = Mathf.Clamp(playerHealth.currentHealth, 0, playerHealth.maxHealth);
-
-                // อัปเดต UI หลอดเลือด
                 playerHealth.healthBar.value = playerHealth.currentHealth / playerHealth.maxHealth;
 
-                Debug.Log("เก็บยา! เลือดปัจจุบัน: " + playerHealth.currentHealth);
+                // ๐” เน€เธฅเนเธเน€เธชเธตเธขเธเธฎเธตเธฅ
+                if (healSound != null)
+                {
+                    AudioSource.PlayClipAtPoint(healSound, transform.position);
+                }
 
-                Destroy(gameObject); // เก็บแล้วหายไป
+                Destroy(gameObject);
             }
         }
     }

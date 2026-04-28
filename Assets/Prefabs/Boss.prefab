@@ -657,7 +657,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2835fb0e7505a4f47ad573c98dd95998, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyChargeAI
-  player: {fileID: 0}
+  player: {fileID: 8674643093375381462, guid: a1276cf2e941b054994c78cc4527d968, type: 3}
   aggroRange: 15
   moveSpeed: 8
   gravity: -9.81
@@ -688,3 +688,5 @@ MonoBehaviour:
   healthBarSlider: {fileID: 3319628390522665659}
   healthItemPrefab: {fileID: 2674310286618552895, guid: a33535a722fbd8e4093d1df990db7942, type: 3}
   dropChance: 100
+  hurtSound: {fileID: 0}
+  deathSound: {fileID: 0}
