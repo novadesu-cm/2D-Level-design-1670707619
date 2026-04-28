@@ -665,7 +665,7 @@ MonoBehaviour:
   attackRange: 5
   attackCooldown: 1.5
   windUpTime: 0.75
-  lungeSpeed: 30
+  lungeSpeed: 35
   knockbackForceToPlayer: 25
   hitStunDuration: 0.2
   shieldStunDuration: 2

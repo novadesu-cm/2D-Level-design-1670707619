@@ -4,17 +4,18 @@ public class DoorUnlock : MonoBehaviour
 {
     public GameObject wall;
     public ParticleSystem smokeEffect;
-    public float fadeSpeed = 2f;
+
+    // 👇 ปรับลดตัวเลขตรงนี้ให้น้อยลง (ยิ่งน้อยยิ่งหายช้า)
+    public float fadeSpeed = 0.5f;
 
     [Header("Sound Settings")]
-    public AudioClip unlockSound; // 🎵 เสียงตอนปลดล็อกประตู
+    public AudioClip unlockSound;
     private AudioSource audioSource;
 
     private bool isOpening = false;
 
     void Start()
     {
-        // สร้างลำโพงไว้ที่ตัวประตู
         audioSource = gameObject.AddComponent<AudioSource>();
         audioSource.playOnAwake = false;
     }
@@ -41,11 +42,10 @@ public class DoorUnlock : MonoBehaviour
 
         if (inventory == null) return;
 
-        if (inventory.hasKey && !isOpening) // เพิ่ม !isOpening เพื่อไม่ให้เสียงเล่นซ้ำรัวๆ
+        if (inventory.hasKey && !isOpening)
         {
             isOpening = true;
 
-            // 🔊 เล่นเสียงปลดล็อก
             if (unlockSound != null && audioSource != null)
             {
                 audioSource.PlayOneShot(unlockSound);
@@ -68,7 +68,6 @@ public class DoorUnlock : MonoBehaviour
         if (color.a <= 0)
         {
             Destroy(wall);
-            // ทำลายตัวประตู (Object นี้) ทิ้งไปด้วยเมื่อกำแพงหายหมดแล้ว เพื่อล้าง Error
             Destroy(gameObject, 0.1f);
         }
     }

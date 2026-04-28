@@ -8,6 +8,10 @@ public class EnemyChargeAI : MonoBehaviour
     public Transform player;
     public float aggroRange = 10f;
 
+    // 👇 เพิ่มการตั้งค่าตรงนี้
+    [Header("Ambush Settings (ซุ่มโจมตี)")]
+    public bool waitForTrigger = false; // ถ้าติ๊กถูก มันจะยืนนิ่งๆ จนกว่าจะมีสคริปต์อื่นมาสั่งให้ไล่
+
     [Header("Movement Settings")]
     public float moveSpeed = 8f;
     public float gravity = -9.81f;
@@ -36,8 +40,8 @@ public class EnemyChargeAI : MonoBehaviour
     private Color originalColor;
 
     [Header("Audio (ระบบเสียง)")]
-    public AudioClip warningSound; // 🎵 เสียงตอนง้างพุ่งชน (ตัวแดง)
-    public AudioClip lungeSound;   // 🎵 เสียงตอนพุ่งตัวเข้าหา (เสียงฟุ่บ! หรือเสียงวิ่งเร็วๆ)
+    public AudioClip warningSound;
+    public AudioClip lungeSound;
     private AudioSource audioSource;
 
     private CharacterController controller;
@@ -56,7 +60,6 @@ public class EnemyChargeAI : MonoBehaviour
             originalColor = enemyMesh.material.color;
         }
 
-        // ดึงลำโพงมาใช้ (เผื่อมีอยู่แล้วจากสคริปต์ EnemyHealth) ถ้าไม่มีก็สร้างใหม่
         audioSource = GetComponent<AudioSource>();
         if (audioSource == null)
         {
@@ -83,12 +86,16 @@ public class EnemyChargeAI : MonoBehaviour
 
         float distanceToPlayer = Vector3.Distance(transform.position, player.position);
 
-        if (distanceToPlayer <= aggroRange && !isChasing)
+        // 👇 อัปเดตเงื่อนไข: ถ้าไม่ได้รอคำสั่งซุ่มโจมตี ถึงจะตรวจระยะสายตา (aggroRange) ปกติ
+        if (!waitForTrigger)
         {
-            isChasing = true;
+            if (distanceToPlayer <= aggroRange && !isChasing)
+            {
+                isChasing = true;
+            }
         }
 
-        if (distanceToPlayer <= attackRange && !isAttacking)
+        if (distanceToPlayer <= attackRange && !isAttacking && isChasing) // เพิ่มเงื่อนไข && isChasing ให้โจมตีตอนตื่นแล้วเท่านั้น
         {
             StartCoroutine(AttackLungeRoutine());
         }
@@ -107,34 +114,32 @@ public class EnemyChargeAI : MonoBehaviour
         }
     }
 
+    // 👇 ฟังก์ชันใหม่ เอาไว้ให้สคริปต์โซนมาสั่งให้ตื่น
+    public void ForceAggro()
+    {
+        if (!isChasing)
+        {
+            isChasing = true;
+            waitForTrigger = false; // ปลดล็อกการรอ เพื่อให้มันวิ่งไล่ตามปกติไปตลอด
+            Debug.Log(gameObject.name + " ตื่นแล้ว! เริ่มวิ่งไล่ผู้เล่น!");
+        }
+    }
+
+    // --- โค้ดด้านล่างทั้งหมดเหมือนเดิม ไม่เปลี่ยนแปลง ---
     IEnumerator AttackLungeRoutine()
     {
         isAttacking = true;
-
-        // 1. เปลี่ยนสีเป็นสีแดง
         if (enemyMesh != null) enemyMesh.material.color = warningColor;
-
-        // 2. 🔊 เล่นเสียงเตือน (ง้าง) ทันที!
-        if (warningSound != null && audioSource != null)
-        {
-            audioSource.PlayOneShot(warningSound);
-        }
+        if (warningSound != null && audioSource != null) audioSource.PlayOneShot(warningSound);
 
         Vector3 directionToPlayer = (player.position - transform.position).normalized;
         directionToPlayer.y = 0;
         transform.rotation = Quaternion.LookRotation(directionToPlayer);
 
-        // รอเวลาง้าง (Wind Up)
         yield return new WaitForSeconds(windUpTime);
 
-        // คืนสีเดิม
         if (enemyMesh != null) enemyMesh.material.color = originalColor;
-
-        // 3. 🔊 เล่นเสียงตอนกำลังพุ่งตัว!
-        if (lungeSound != null && audioSource != null)
-        {
-            audioSource.PlayOneShot(lungeSound);
-        }
+        if (lungeSound != null && audioSource != null) audioSource.PlayOneShot(lungeSound);
 
         float lungeDuration = 0.2f;
         float timer = 0f;
@@ -161,7 +166,6 @@ public class EnemyChargeAI : MonoBehaviour
                     {
                         playerHealth.TakeDamage(attackDamage);
                         hasHit = true;
-
                         PlayerMovement pMove = player.GetComponent<PlayerMovement>();
                         if (pMove != null)
                         {
@@ -181,25 +185,16 @@ public class EnemyChargeAI : MonoBehaviour
         }
     }
 
-    public void ShieldStun()
-    {
-        StopAllCoroutines();
-        StartCoroutine(ShieldStunRoutine());
-    }
-
+    public void ShieldStun() { StopAllCoroutines(); StartCoroutine(ShieldStunRoutine()); }
     IEnumerator ShieldStunRoutine()
     {
         isStunned = true;
         isAttacking = false;
-
         if (enemyMesh != null) enemyMesh.material.color = stunnedColor;
-
         Vector3 bounceDir = (transform.position - player.position).normalized;
         bounceDir.y = 0;
         knockbackVelocity = bounceDir * bounceBackForce;
-
         yield return new WaitForSeconds(shieldStunDuration);
-
         if (enemyMesh != null) enemyMesh.material.color = originalColor;
         isStunned = false;
     }
@@ -207,9 +202,7 @@ public class EnemyChargeAI : MonoBehaviour
     public void ApplyKnockback(Vector3 direction, float force)
     {
         knockbackVelocity = direction * force;
-
         if (isAttacking) return;
-
         StopAllCoroutines();
         StartCoroutine(StunRoutine());
     }
@@ -218,11 +211,8 @@ public class EnemyChargeAI : MonoBehaviour
     {
         isStunned = true;
         isAttacking = false;
-
         if (enemyMesh != null) enemyMesh.material.color = originalColor;
-
         yield return new WaitForSeconds(hitStunDuration);
-
         isStunned = false;
     }
 

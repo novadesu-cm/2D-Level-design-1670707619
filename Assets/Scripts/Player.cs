@@ -8,14 +8,11 @@ public class PlayerMovement : MonoBehaviour
     public float jumpHeight = 1.5f;
     public float gravity = -9.81f;
 
-    [Header("Double Jump Settings")]
-    public int maxJumps = 2;
-    private int jumpCount = 0;
-
     [Header("Dash Settings")]
     public float dashSpeed = 20f;
     public float dashDuration = 0.2f;
     public float dashCooldown = 1.5f;
+    private bool hasAirDashed = false; // 📌 ตัวเก็บข้อมูลว่าใช้สิทธิ์แดชกลางอากาศไปหรือยัง
 
     [Header("Respawn Settings")]
     public Vector3 currentRespawnPosition;
@@ -42,7 +39,6 @@ public class PlayerMovement : MonoBehaviour
     {
         controller = GetComponent<CharacterController>();
         currentRespawnPosition = transform.position;
-        Cursor.lockState = CursorLockMode.Locked;
 
         audioSource = gameObject.AddComponent<AudioSource>();
         audioSource.playOnAwake = false;
@@ -50,6 +46,8 @@ public class PlayerMovement : MonoBehaviour
 
     void Update()
     {
+        if (Time.timeScale == 0f) return;
+
         if (cameraTransform != null)
         {
             float targetAngle = cameraTransform.eulerAngles.y;
@@ -64,16 +62,16 @@ public class PlayerMovement : MonoBehaviour
         {
             NormalMovement();
             HandleDashInput();
-            HandleInteractInput();
         }
     }
 
     void NormalMovement()
     {
-        if (controller.isGrounded)
+        // 1. เช็คพื้น: คืนสิทธิ์แดชกลางอากาศเมื่อเท้าแตะพื้น
+        if (controller.isGrounded && velocity.y < 0)
         {
-            if (velocity.y < 0) velocity.y = -2f;
-            jumpCount = 0;
+            velocity.y = -2f;
+            hasAirDashed = false; // 🔄 เท้าแตะพื้นปุ๊บ คืนโควต้าแดชให้ทันที
         }
 
         float horizontal = Input.GetAxisRaw("Horizontal");
@@ -90,20 +88,17 @@ public class PlayerMovement : MonoBehaviour
             moveDir = moveDir.normalized * currentMoveSpeed;
         }
 
+        // 2. ระบบกระโดด 1 จังหวะ
         if (Input.GetButtonDown("Jump") && !isShieldingWalk)
         {
-            if (controller.isGrounded || jumpCount < maxJumps - 1)
+            if (controller.isGrounded) // ต้องยืนอยู่บนพื้นเท่านั้นถึงจะกระโดดได้
             {
                 velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
-                jumpCount++;
-
                 if (jumpSound != null) audioSource.PlayOneShot(jumpSound);
             }
         }
 
         velocity.y += gravity * Time.deltaTime;
-
-        // ค่อยๆ ลดแรงกระเด็นลงเรื่อยๆ
         knockbackVelocity = Vector3.Lerp(knockbackVelocity, Vector3.zero, Time.deltaTime * 5f);
 
         Vector3 finalMovement = (moveDir * Time.deltaTime) + (velocity * Time.deltaTime) + (knockbackVelocity * Time.deltaTime);
@@ -116,10 +111,22 @@ public class PlayerMovement : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.LeftShift) && Time.time >= nextDashTime)
         {
+            // 🛑 เช็คว่าถ้าตัวลอยอยู่ และเคยแดชไปแล้ว ให้กดไม่ติด
+            if (!controller.isGrounded && hasAirDashed)
+            {
+                return;
+            }
+
             isDashing = true;
             dashEndTime = Time.time + dashDuration;
             nextDashTime = Time.time + dashCooldown;
-            velocity.y = 0f;
+            velocity.y = 0f; // ล็อกความสูงไว้ ทำให้แดชพุ่งตรงๆ กลางอากาศไม่ตกลงมา
+
+            // ถ้าแดชตอนลอยอยู่ ให้ริบโควต้า (hasAirDashed เป็น true)
+            if (!controller.isGrounded)
+            {
+                hasAirDashed = true;
+            }
 
             if (dashSound != null) audioSource.PlayOneShot(dashSound);
 
@@ -132,20 +139,45 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    void DashMovement() { if (Time.time < dashEndTime) controller.Move(currentDashDir * dashSpeed * Time.deltaTime); else isDashing = false; }
-    void HandleInteractInput() { }
-
-    public void ApplyBounce(Vector3 bounceDir, float force) { velocity.y = bounceDir.normalized.y * force; knockbackVelocity = new Vector3(bounceDir.x, 0, bounceDir.z).normalized * force; }
-
-    // 👇 ฟังก์ชันใหม่: รับแรงผลักจากการโดนโจมตี
-    public void ApplyKnockback(Vector3 direction, float force)
+    void DashMovement()
     {
-        direction.y = 0; // ไม่เอาแกน Y มาคิด
-        knockbackVelocity = direction.normalized * force;
-        velocity.y = 3f; // สั่งให้ตัวลอยกระเด้งขึ้นจากพื้นนิดนึงตอนโดนตี
+        if (Time.time < dashEndTime)
+            controller.Move(currentDashDir * dashSpeed * Time.deltaTime);
+        else
+            isDashing = false;
     }
 
-    public void Respawn(Vector3 pos) { controller.enabled = false; transform.position = pos; velocity = Vector3.zero; knockbackVelocity = Vector3.zero; controller.enabled = true; }
-    public void Die() { Respawn(currentRespawnPosition); }
-    public void SetShieldMovement(bool isShielding) { isShieldingWalk = isShielding; }
+    public void ApplyBounce(Vector3 bounceDir, float force)
+    {
+        velocity.y = bounceDir.normalized.y * force;
+        knockbackVelocity = new Vector3(bounceDir.x, 0, bounceDir.z).normalized * force;
+        hasAirDashed = false; // ทริคเสริม: คืนสิทธิ์แดชให้เผื่อกระเด้งกับดักแล้วอยากพุ่งหลบ
+    }
+
+    public void ApplyKnockback(Vector3 direction, float force)
+    {
+        direction.y = 0;
+        knockbackVelocity = direction.normalized * force;
+        velocity.y = 3f;
+    }
+
+    public void Respawn(Vector3 pos)
+    {
+        controller.enabled = false;
+        transform.position = pos;
+        velocity = Vector3.zero;
+        knockbackVelocity = Vector3.zero;
+        hasAirDashed = false;
+        controller.enabled = true;
+    }
+
+    public void Die()
+    {
+        Respawn(currentRespawnPosition);
+    }
+
+    public void SetShieldMovement(bool isShielding)
+    {
+        isShieldingWalk = isShielding;
+    }
 }
